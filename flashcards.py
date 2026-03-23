@@ -1,26 +1,31 @@
-def generate_flashcards(text):
-    sentences = text.split(".")
-    cards = []
+from openai import OpenAI
 
-    for s in sentences:
-        s = s.strip()
+def generate_flashcards(text, client):
+    try:
+        prompt = f"""
+        You are a helpful study assistant.
 
-        if len(s) > 20:
-            parts = s.split("is")
+        From the following text, create 5 flashcards.
 
-            if len(parts) > 1:
-                front = parts[0]
-                back = "is".join(parts[1:])
-            else:
-                front = s
-                back = "Explanation: " + s
+        Format:
+        Front: Question
+        Back: Answer
 
-            cards.append({
-                "front": front,
-                "back": back
-            })
+        Text:
+        {text}
+        """
 
-        if len(cards) == 5:
-            break
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a flashcard generator."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
+        )
 
-    return cards
+        flashcards = response.choices[0].message.content
+        return flashcards
+
+    except Exception as e:
+        return f"Error generating flashcards: {e}"

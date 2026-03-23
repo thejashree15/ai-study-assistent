@@ -1,65 +1,75 @@
 import streamlit as st
+from openai import OpenAI
 from pdf_utils import extract_text
 from quiz import generate_quiz
 from flashcards import generate_flashcards
 from database import create_table, save_quiz, get_quizzes
 
-# -------- INITIALIZE DATABASE --------
-create_table()
-
-# -------- PAGE CONFIG --------
+# -------------------- CONFIG --------------------
 st.set_page_config(page_title="AI Study Assistant", layout="wide")
 
-# -------- TITLE --------
 st.title("📚 AI Study Assistant")
 
-# -------- SIDEBAR --------
+# -------------------- OPENAI --------------------
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+# -------------------- DATABASE --------------------
+create_table()
+
+# -------------------- SIDEBAR --------------------
 st.sidebar.title("📌 Options")
 option = st.sidebar.radio("Choose Feature", ["Quiz", "Flashcards", "History"])
 
-# -------- FILE UPLOAD --------
-uploaded_file = st.file_uploader("📄 Upload your PDF", type="pdf")
+# -------------------- FILE UPLOAD --------------------
+uploaded_file = st.file_uploader("Upload your PDF", type="pdf")
 
-# -------- MAIN CONTENT --------
-if uploaded_file:
+text = ""
+
+if uploaded_file is not None:
     text = extract_text(uploaded_file)
 
-    st.subheader("📃 Extracted Text Preview")
-    st.write(text[:500])  # Preview
+    st.subheader("📄 Extracted Text Preview")
+    st.write(text[:1000])  # show first 1000 chars
 
-    # -------- QUIZ SECTION --------
-    if option == "Quiz":
-        if st.button("🎯 Generate Quiz"):
-            quiz = generate_quiz(text)
 
-            # Save quiz to database
-            save_quiz(quiz)
+# -------------------- QUIZ --------------------
+if option == "Quiz":
+    if text:
+        if st.button("🔥 Generate Quiz"):
+            with st.spinner("Generating quiz..."):
+                quiz = generate_quiz(text, client)
 
-            st.subheader("🧠 Quiz Questions")
-            for i, q in enumerate(quiz, 1):
-                st.write(f"{i}. {q}")
+                st.subheader("🧠 Quiz Questions")
+                st.write(quiz)
 
-    # -------- FLASHCARDS SECTION --------
-    elif option == "Flashcards":
-        if st.button("🧠 Generate Flashcards"):
-            flashcards = generate_flashcards(text)
+                # Save to database
+                save_quiz(quiz)
+    else:
+        st.warning("Please upload a PDF first.")
 
-            st.subheader("📚 Flashcards")
-            for card in flashcards:
-                st.markdown(f"""
-                **📌 Front:** {card['front']}  
-                **💡 Back:** {card['back']}
-                """)
-                st.markdown("---")
 
-# -------- HISTORY SECTION --------
+# -------------------- FLASHCARDS --------------------
+elif option == "Flashcards":
+    if text:
+        if st.button("📘 Generate Flashcards"):
+            with st.spinner("Generating flashcards..."):
+                flashcards = generate_flashcards(text, client)
+
+                st.subheader("📚 Flashcards")
+                st.write(flashcards)
+    else:
+        st.warning("Please upload a PDF first.")
+
+
+# -------------------- HISTORY --------------------
 elif option == "History":
     st.subheader("📜 Quiz History")
 
-    data = get_quizzes()
+    quizzes = get_quizzes()
 
-    if not data:
-        st.write("No history found.")
+    if quizzes:
+        for q in quizzes:
+            st.write(q)
+            st.markdown("---")
     else:
-        for row in data:
-            st.write(f"{row[0]}. {row[1]} ({row[2]})")
+        st.info("No history found.")
