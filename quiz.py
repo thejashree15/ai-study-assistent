@@ -1,31 +1,51 @@
-from openai import OpenAI
+from langchain_openai import ChatOpenAI
 
-def generate_quiz(text, client):
+# -------- BASIC QUIZ --------
+def basic_quiz(text):
+    sentences = text.split(".")
+    questions = []
+
+    for s in sentences:
+        s = s.strip()
+        if len(s) > 20:
+            questions.append(f"What is meant by: {s}?")
+
+        if len(questions) == 10:
+            break
+
+    return questions
+
+
+# -------- AI QUIZ --------
+def ai_quiz(text):
+    llm = ChatOpenAI(
+        model="gpt-3.5-turbo",
+        temperature=0.7
+    )
+
+    prompt = f"""
+    Generate 10 important study questions from the following content:
+
+    {text[:1500]}
+
+    Rules:
+    - Questions should be clear and short
+    - Do not include answers
+    - Number the questions
+    """
+
+    response = llm.invoke(prompt)
+
+    questions = response.content.split("\n")
+    questions = [q.strip() for q in questions if q.strip() != ""]
+
+    return questions
+
+
+# -------- MAIN FUNCTION --------
+def generate_quiz(text):
     try:
-        prompt = f"""
-        You are a helpful teacher.
-
-        From the following study material, create 5 quiz questions with answers.
-
-        Format:
-        Q1: Question
-        Answer: ...
-
-        Text:
-        {text}
-        """
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a quiz generator."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
-        )
-
-        quiz = response.choices[0].message.content
-        return quiz
-
+        return ai_quiz(text)
     except Exception as e:
-        return f"Error generating quiz: {e}"
+        print("AI failed, using basic quiz:", e)
+        return basic_quiz(text)
