@@ -2,55 +2,64 @@ import streamlit as st
 from pdf_utils import extract_text
 from quiz import generate_quiz
 from flashcards import generate_flashcards
+from database import create_table, save_quiz, get_quizzes
 
-# Page config
-st.set_page_config(page_title="AI Study Assistant", page_icon="📚", layout="wide")
+# -------- INITIALIZE DATABASE --------
+create_table()
 
-# Title
-st.markdown("<h1 style='text-align: center; color: #4CAF50;'>📚 AI Study Assistant</h1>", unsafe_allow_html=True)
-st.markdown("---")
+# -------- PAGE CONFIG --------
+st.set_page_config(page_title="AI Study Assistant", layout="wide")
 
-# Sidebar
+# -------- TITLE --------
+st.title("📚 AI Study Assistant")
+
+# -------- SIDEBAR --------
 st.sidebar.title("📌 Options")
-feature = st.sidebar.radio("Choose Feature", ["Quiz", "Flashcards"])
+option = st.sidebar.radio("Choose Feature", ["Quiz", "Flashcards", "History"])
 
-# Upload section
-st.subheader("📄 Upload your PDF")
-uploaded_file = st.file_uploader("Choose a file", type="pdf")
+# -------- FILE UPLOAD --------
+uploaded_file = st.file_uploader("📄 Upload your PDF", type="pdf")
 
+# -------- MAIN CONTENT --------
 if uploaded_file:
     text = extract_text(uploaded_file)
 
     st.subheader("📃 Extracted Text Preview")
-    st.write(text[:300])
+    st.write(text[:500])  # Preview
 
-    st.markdown("---")
-
-    # QUIZ SECTION
-    if feature == "Quiz":
+    # -------- QUIZ SECTION --------
+    if option == "Quiz":
         if st.button("🎯 Generate Quiz"):
             quiz = generate_quiz(text)
+
+            # Save quiz to database
+            save_quiz(quiz)
 
             st.subheader("🧠 Quiz Questions")
             for i, q in enumerate(quiz, 1):
                 st.write(f"{i}. {q}")
 
-    # FLASHCARDS SECTION
-    elif feature == "Flashcards":
-        if st.button("🧾 Generate Flashcards"):
-            cards = generate_flashcards(text)
+    # -------- FLASHCARDS SECTION --------
+    elif option == "Flashcards":
+        if st.button("🧠 Generate Flashcards"):
+            flashcards = generate_flashcards(text)
 
             st.subheader("📚 Flashcards")
+            for card in flashcards:
+                st.markdown(f"""
+                **📌 Front:** {card['front']}  
+                **💡 Back:** {card['back']}
+                """)
+                st.markdown("---")
 
-            for card in cards:
-                with st.container():
-                    st.markdown(f"""
-                    <div style="background-color:#1e1e1e; padding:15px; border-radius:10px; margin-bottom:10px;">
-                        <b>📌 Front:</b> {card['front']}<br>
-                        <b>💡 Back:</b> {card['back']}
-                    </div>
-                    """, unsafe_allow_html=True)
+# -------- HISTORY SECTION --------
+elif option == "History":
+    st.subheader("📜 Quiz History")
 
-# Footer
-st.markdown("---")
-st.markdown("<p style='text-align:center;'>Built with ❤️ using Streamlit</p>", unsafe_allow_html=True)
+    data = get_quizzes()
+
+    if not data:
+        st.write("No history found.")
+    else:
+        for row in data:
+            st.write(f"{row[0]}. {row[1]} ({row[2]})")
